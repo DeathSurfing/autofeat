@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use polars::prelude::DataFrame;
+use polars::prelude::*;
 
 use crate::workflow::graph::WorkflowGraph;
 use crate::workflow::node::NodeKind;
@@ -25,7 +25,7 @@ pub struct ExecutionResult {
 /// Run the workflow pipeline on the given DataFrame.
 pub fn run_pipeline(workflow: &WorkflowGraph, df: &DataFrame) -> ExecutionResult {
     let start = Instant::now();
-    let mut current = df.clone();
+    let mut current = cast_numeric_to_float64(df);
 
     for node in &workflow.nodes {
         if !node.enabled {
@@ -105,4 +105,33 @@ fn apply_transform(
         }
         NodeKind::DatetimeFeatures => Err("DatetimeFeatures not yet implemented in featrs".into()),
     }
+}
+
+/// Cast all numeric integer columns to Float64 so featrs transformers can process them.
+fn cast_numeric_to_float64(df: &DataFrame) -> DataFrame {
+    let height = df.height();
+    let cols: Vec<Column> = df
+        .columns()
+        .iter()
+        .map(|col| match col.as_series() {
+            Some(s) => match s.dtype() {
+                DataType::Int8
+                | DataType::Int16
+                | DataType::Int32
+                | DataType::Int64
+                | DataType::UInt8
+                | DataType::UInt16
+                | DataType::UInt32
+                | DataType::UInt64
+                | DataType::Float32 => s
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .map(|s| s.into_column())
+                    .unwrap_or(col.clone()),
+                _ => col.clone(),
+            },
+            None => col.clone(),
+        })
+        .collect();
+    DataFrame::new(height, cols).unwrap_or_else(|_| df.clone())
 }
