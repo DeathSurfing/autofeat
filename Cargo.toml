@@ -2,9 +2,26 @@
 name = "autofeat"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.96"
+description = "Interactive AI-powered feature engineering CLI"
+authors = ["Aditya Vikram Mahendru"]
+license = "MIT"
+repository = "https://github.com/DeathSurfing/autofeat"
+keywords = ["feature-engineering", "machine-learning", "cli", "tui"]
+categories = ["command-line-utilities", "science"]
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+crossterm = "0.29"
 featrs = "0.3.4"
+polars = "0.54"
 ratatui = "0.30.2"
 rig = "0.39.0"
-tokio = "1.52.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.52.3", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
