@@ -10,15 +10,15 @@ use crate::workflow::node::NodeKind;
 /// Result of a single pipeline execution.
 #[derive(Debug, Clone)]
 pub struct ExecutionResult {
-    /// Whether the execution succeeded.
+    /// Whether the pipeline completed without errors.
     pub success: bool,
-    /// Output row count.
+    /// Number of rows in the output DataFrame.
     pub output_rows: usize,
-    /// Output column count.
+    /// Number of columns in the output DataFrame.
     pub output_cols: usize,
-    /// Status or error message.
+    /// Status message or error description.
     pub message: String,
-    /// Duration in milliseconds.
+    /// Execution time in milliseconds.
     pub duration_ms: u64,
 }
 
@@ -64,25 +64,47 @@ fn apply_transform(
 
     match kind {
         NodeKind::MedianImputer => {
+            let (num_df, num_names) = filter_float64_columns(df);
+            if num_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut imputer = SimpleImputer::new(Strategy::Median);
-            imputer.fit(df.clone())?;
-            imputer.transform(df.clone()).map_err(Into::into)
+            imputer.fit(num_df.clone())?;
+            let filled = imputer.transform(num_df)?;
+            Ok(merge_columns(df, &filled, &num_names))
         }
         NodeKind::MeanImputer => {
+            let (num_df, num_names) = filter_float64_columns(df);
+            if num_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut imputer = SimpleImputer::new(Strategy::Mean);
-            imputer.fit(df.clone())?;
-            imputer.transform(df.clone()).map_err(Into::into)
+            imputer.fit(num_df.clone())?;
+            let filled = imputer.transform(num_df)?;
+            Ok(merge_columns(df, &filled, &num_names))
         }
+
         NodeKind::RobustScaler => {
+            let (num_df, num_names) = filter_float64_columns(df);
+            if num_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut scaler = RobustScaler::new();
-            scaler.fit(df.clone())?;
-            scaler.transform(df.clone()).map_err(Into::into)
+            scaler.fit(num_df.clone())?;
+            let scaled = scaler.transform(num_df)?;
+            Ok(merge_columns(df, &scaled, &num_names))
         }
         NodeKind::StandardScaler => {
+            let (num_df, num_names) = filter_float64_columns(df);
+            if num_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut scaler = StandardScaler::new();
-            scaler.fit(df.clone())?;
-            scaler.transform(df.clone()).map_err(Into::into)
+            scaler.fit(num_df.clone())?;
+            let scaled = scaler.transform(num_df)?;
+            Ok(merge_columns(df, &scaled, &num_names))
         }
+
         NodeKind::OneHotEncoder => {
             let (string_df, string_names) = filter_string_columns(df);
             if string_df.width() == 0 {
@@ -91,18 +113,13 @@ fn apply_transform(
             let mut encoder = OneHotEncoder::new();
             encoder.fit(string_df.clone())?;
             let encoded = encoder.transform(string_df)?;
-            let mut result = df.clone();
-            for name in &string_names {
-                let _ = result.drop_in_place(name);
-            }
+            let mut result = drop_columns(df, &string_names);
             for ec in encoded.columns() {
                 let _ = result.hstack_mut(std::slice::from_ref(ec));
             }
             Ok(result)
         }
-        NodeKind::TargetEncoder => {
-            Err("TargetEncoder requires a target column — not implemented yet".into())
-        }
+
         NodeKind::FrequencyEncoder => {
             let (string_df, string_names) = filter_string_columns(df);
             if string_df.width() == 0 {
@@ -111,25 +128,59 @@ fn apply_transform(
             let mut encoder = OrdinalEncoder::new();
             encoder.fit(string_df.clone())?;
             let encoded = encoder.transform(string_df)?;
-            let mut result = df.clone();
-            for name in &string_names {
-                let _ = result.drop_in_place(name);
-            }
+            let mut result = drop_columns(df, &string_names);
             for ec in encoded.columns() {
                 let _ = result.hstack_mut(std::slice::from_ref(ec));
             }
             Ok(result)
         }
+
         NodeKind::PolynomialFeatures => {
+            let (num_df, num_names) = filter_float64_columns(df);
+            if num_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut pf = PolynomialFeatures::new(2)?;
-            pf.fit(df.clone())?;
-            pf.transform(df.clone()).map_err(Into::into)
+            pf.fit(num_df.clone())?;
+            let expanded = pf.transform(num_df)?;
+            let mut result = drop_columns(df, &num_names);
+            for ec in expanded.columns() {
+                let _ = result.hstack_mut(std::slice::from_ref(ec));
+            }
+            Ok(result)
         }
-        NodeKind::DatetimeFeatures => Err("DatetimeFeatures not yet implemented in featrs".into()),
+
+        NodeKind::TargetEncoder => Err("TargetEncoder requires a target column — skipped".into()),
+
+        NodeKind::DatetimeFeatures => Err("DatetimeFeatures not yet implemented — skipped".into()),
     }
 }
 
-/// Filter a DataFrame to only String columns, returning the filtered DF and column names.
+// ── Column helpers ──
+
+/// Filter columns that are Float64, returning the filtered DF and their names.
+fn filter_float64_columns(df: &DataFrame) -> (DataFrame, Vec<String>) {
+    let mut names = Vec::new();
+    let cols: Vec<Column> = df
+        .columns()
+        .iter()
+        .filter_map(|col| {
+            let s = col.as_series()?;
+            if matches!(s.dtype(), DataType::Float64) {
+                names.push(s.name().to_string());
+                Some(col.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    if names.is_empty() {
+        return (DataFrame::default(), Vec::new());
+    }
+    (DataFrame::new(df.height(), cols).unwrap_or_default(), names)
+}
+
+/// Filter columns that are String, returning the filtered DF and their names.
 fn filter_string_columns(df: &DataFrame) -> (DataFrame, Vec<String>) {
     let mut names = Vec::new();
     let cols: Vec<Column> = df
@@ -148,8 +199,27 @@ fn filter_string_columns(df: &DataFrame) -> (DataFrame, Vec<String>) {
     if names.is_empty() {
         return (DataFrame::default(), Vec::new());
     }
-    let filtered = DataFrame::new(df.height(), cols).unwrap_or_default();
-    (filtered, names)
+    (DataFrame::new(df.height(), cols).unwrap_or_default(), names)
+}
+
+/// Drop named columns from a DataFrame and return the result.
+fn drop_columns(df: &DataFrame, names: &[String]) -> DataFrame {
+    let mut result = df.clone();
+    for name in names {
+        let _ = result.drop_in_place(name);
+    }
+    result
+}
+
+/// Replace a subset of columns in `df` with the transformed versions from `transformed`.
+fn merge_columns(original: &DataFrame, transformed: &DataFrame, names: &[String]) -> DataFrame {
+    let mut result = drop_columns(original, names);
+    for name in names {
+        if let Ok(col) = transformed.column(name) {
+            let _ = result.hstack_mut(std::slice::from_ref(col));
+        }
+    }
+    result
 }
 
 /// Cast all numeric integer columns to Float64 so featrs transformers can process them.
