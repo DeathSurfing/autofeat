@@ -9,6 +9,7 @@ license = "MIT"
 repository = "https://github.com/DeathSurfing/autofeat"
 keywords = ["feature-engineering", "machine-learning", "cli", "tui"]
 categories = ["command-line-utilities", "science"]
+readme = "README.md"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -25,3 +26,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [lints.clippy]
 cargo = { level = "warn", priority = -1 }
+multiple_crate_versions = "allow"

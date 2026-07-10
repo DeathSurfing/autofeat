@@ -23,14 +23,11 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
             // TODO: render current screen
         })?;
 
-        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
-            match crossterm::event::read()? {
-                crossterm::event::Event::Key(key) => match key.code {
-                    crossterm::event::KeyCode::Char('q') => break,
-                    _ => {}
-                },
-                _ => {}
-            }
+        if crossterm::event::poll(std::time::Duration::from_millis(100))?
+            && let crossterm::event::Event::Key(key) = crossterm::event::read()?
+            && key.code == crossterm::event::KeyCode::Char('q')
+        {
+            break;
         }
     }
     Ok(())
