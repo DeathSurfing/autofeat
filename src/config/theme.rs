@@ -1,12 +1,12 @@
 //! Catppuccin Mocha theme colors.
 //!
-//! Reference: https://github.com/catppuccin/catppuccin
+//! Reference: <https://github.com/catppuccin/catppuccin>
 
 use ratatui::style::Color;
 
 /// Catppuccin Mocha color palette.
 ///
-/// Reference: https://github.com/catppuccin/catppuccin
+/// Reference: <https://github.com/catppuccin/catppuccin>
 #[allow(missing_docs)]
 pub struct Catppuccin;
 
