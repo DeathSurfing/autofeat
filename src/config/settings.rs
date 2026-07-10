@@ -1,5 +1,8 @@
 //! Serializable user settings (General, LLM, Pipeline, Evaluation, Diagnostics).
 
+use std::fs;
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 /// LLM provider configuration.
@@ -98,6 +101,34 @@ impl Default for Settings {
             llm: LlmSettings::default(),
             pipeline: PipelineSettings::default(),
             evaluation: EvaluationSettings::default(),
+        }
+    }
+}
+
+impl Settings {
+    /// Path to the settings file on disk.
+    fn config_path() -> PathBuf {
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        base.join("autofeat").join("settings.json")
+    }
+
+    /// Load settings from disk, or return defaults if missing.
+    pub fn load() -> Self {
+        let path = Self::config_path();
+        fs::read_to_string(&path)
+            .ok()
+            .and_then(|data| serde_json::from_str(&data).ok())
+            .unwrap_or_default()
+    }
+
+    /// Save settings to disk.
+    pub fn save(&self) {
+        let path = Self::config_path();
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(data) = serde_json::to_string_pretty(self) {
+            let _ = fs::write(&path, data);
         }
     }
 }

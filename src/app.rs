@@ -26,14 +26,19 @@ pub struct App {
 
 impl App {
     fn new() -> Self {
+        let settings = Settings::load();
         Self {
             current_screen: Screen::default(),
-            settings: Settings::default(),
+            settings,
             settings_category: 0,
             settings_field: 0,
             settings_editing: false,
             settings_edit_buffer: String::new(),
         }
+    }
+
+    fn save_settings(&self) {
+        self.settings.save();
     }
 }
 
@@ -61,6 +66,7 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                     KeyCode::Enter => {
                         app.settings.llm.api_key = app.settings_edit_buffer.clone();
                         app.settings_editing = false;
+                        app.save_settings();
                     }
                     KeyCode::Esc => {
                         app.settings_editing = false;
@@ -77,7 +83,10 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
             }
 
             match key.code {
-                KeyCode::Char('q' | 'Q') => break,
+                KeyCode::Char('q' | 'Q') => {
+                    app.save_settings();
+                    break;
+                }
                 KeyCode::Char(' ') if app.current_screen == Screen::Settings => {
                     if app.settings_category == 1 && app.settings_field == 4 {
                         // API Key — enter text editing mode
@@ -179,4 +188,5 @@ fn handle_settings_action(app: &mut App) {
         3 => settings::handle_evaluation(&mut app.settings, app.settings_field),
         _ => {}
     }
+    app.save_settings();
 }
