@@ -61,7 +61,15 @@ pub async fn call_llm(
     if let Some(err) = data.get("error") {
         let msg = err["message"].as_str().unwrap_or("unknown error");
         let code = err["code"].as_str().unwrap_or("");
-        return Err(format!("API error ({}): {}", code, msg));
+        let provider = err["metadata"]["provider_name"]
+            .as_str()
+            .map(|s| format!(" [provider: {}]", s))
+            .unwrap_or_default();
+        let raw = err["metadata"]["raw"]
+            .as_str()
+            .map(|s| format!(" — {}", s))
+            .unwrap_or_default();
+        return Err(format!("API error ({}): {}{}{}", code, msg, provider, raw));
     }
 
     // Extract content — can be null when model uses tool calls or refuses
