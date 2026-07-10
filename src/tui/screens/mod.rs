@@ -305,8 +305,14 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
             app.dataset.as_ref(),
             app.dataset_selected_column,
         ),
-        Screen::Workflow => workflow::render(frame, area, &app.workflow, app.workflow_selected),
-        Screen::Tools => tools::render(frame, area),
+        Screen::Workflow => workflow::render(
+            frame,
+            area,
+            &app.workflow,
+            app.workflow_selected,
+            app.last_execution.as_ref(),
+        ),
+        Screen::Tools => tools::render(frame, area, &app.execution_history),
         Screen::Settings => settings::render(
             frame,
             area,

@@ -4,6 +4,7 @@ use crate::agent::AgentState;
 use crate::cli::Cli;
 use crate::config::settings::Settings;
 use crate::dataset::Dataset;
+use crate::pipeline::ExecutionResult;
 use crate::tui::screens::Screen;
 use crate::tui::screens::settings;
 use crate::workflow::graph::WorkflowGraph;
@@ -73,6 +74,12 @@ pub struct App {
     pub workflow_add_selected: usize,
     /// Whether the user is in move-node mode.
     pub workflow_moving: bool,
+
+    // Pipeline execution
+    /// Result of the most recent pipeline run.
+    pub last_execution: Option<ExecutionResult>,
+    /// History of all pipeline runs.
+    pub execution_history: Vec<ExecutionResult>,
 }
 
 impl App {
@@ -106,6 +113,8 @@ impl App {
             workflow_adding: false,
             workflow_add_selected: 0,
             workflow_moving: false,
+            last_execution: None,
+            execution_history: Vec::new(),
         }
     }
 
@@ -255,6 +264,16 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                         }
                         KeyCode::Enter | KeyCode::Char(' ') => {
                             app.workflow.toggle(app.workflow_selected);
+                        }
+                        KeyCode::Char('r' | 'R') => {
+                            if let Some(ref df) = app.dataset {
+                                app.workflow_moving = false;
+                                app.workflow_adding = false;
+                                let result =
+                                    crate::pipeline::execute::run_pipeline(&app.workflow, &df.df);
+                                app.last_execution = Some(result.clone());
+                                app.execution_history.push(result);
+                            }
                         }
                         KeyCode::Char('a' | 'A') => {
                             app.workflow_adding = true;
