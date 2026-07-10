@@ -228,6 +228,7 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
             app.settings_field,
             app.settings_editing,
             &app.settings_edit_buffer,
+            &app.api_key_status,
         ),
         Screen::Help => help::render(frame, area),
     }

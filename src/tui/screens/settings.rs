@@ -11,6 +11,7 @@ use crate::config::theme::Catppuccin;
 
 const CATEGORIES: &[&str] = &["General", "LLM", "Pipeline", "Evaluation", "Diagnostics"];
 
+#[allow(clippy::too_many_arguments)]
 /// Render the Settings screen.
 pub fn render(
     frame: &mut Frame,
@@ -20,6 +21,7 @@ pub fn render(
     field: usize,
     editing: bool,
     edit_buffer: &str,
+    api_key_status: &str,
 ) {
     let horz = Layout::default()
         .direction(Direction::Horizontal)
@@ -35,6 +37,7 @@ pub fn render(
         field,
         editing,
         edit_buffer,
+        api_key_status,
     );
 }
 
@@ -68,6 +71,7 @@ fn render_categories(frame: &mut Frame, area: Rect, selected: usize) {
     frame.render_widget(List::new(items), inner);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_fields(
     frame: &mut Frame,
     area: Rect,
@@ -76,6 +80,7 @@ fn render_fields(
     field: usize,
     editing: bool,
     edit_buffer: &str,
+    api_key_status: &str,
 ) {
     let block = Block::default()
         .title(format!(" {} ", CATEGORIES[category]))
@@ -89,7 +94,7 @@ fn render_fields(
         1 => render_llm(frame, inner, settings, field, editing, edit_buffer),
         2 => render_pipeline(frame, inner, settings, field),
         3 => render_evaluation(frame, inner, settings, field),
-        4 => render_diagnostics(frame, inner, field),
+        4 => render_diagnostics(frame, inner, field, api_key_status),
         _ => {}
     }
 }
@@ -372,14 +377,14 @@ pub fn handle_evaluation(settings: &mut Settings, field: usize) {
 
 // ── Diagnostics ──
 
-fn render_diagnostics(frame: &mut Frame, area: Rect, field: usize) {
+fn render_diagnostics(frame: &mut Frame, area: Rect, field: usize, api_key_status: &str) {
     let labels = [
         "OpenRouter Connection",
         "API Key Status",
         "featrs Loaded",
         "Rust Version",
     ];
-    let values = ["—", "—", "✓", "1.96.1"];
+    let values = [api_key_status, "", "✓", "1.96.1"];
     let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {

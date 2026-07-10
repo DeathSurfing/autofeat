@@ -585,6 +585,7 @@ dependencies = [
  "featrs",
  "polars",
  "ratatui",
+ "reqwest 0.13.4",
  "rig",
  "serde",
  "serde_json",

@@ -44,6 +44,9 @@ pub struct App {
     pub settings_popover_field: usize,
     /// Title for the popover box.
     pub settings_popover_title: String,
+
+    /// API key connection status (for Diagnostics screen).
+    pub api_key_status: String,
 }
 
 impl App {
@@ -64,11 +67,34 @@ impl App {
             settings_popover_cat: 0,
             settings_popover_field: 0,
             settings_popover_title: String::new(),
+            api_key_status: String::new(),
         }
     }
 
     fn save_settings(&self) {
         self.settings.save();
+    }
+
+    /// Check the API key against OpenRouter and update `api_key_status`.
+    pub async fn check_api_key(&mut self) {
+        let key = &self.settings.llm.api_key;
+        if key.is_empty() {
+            self.api_key_status = "Not Configured".into();
+            return;
+        }
+        self.api_key_status = "Checking...".into();
+        let client = reqwest::Client::new();
+        let resp = client
+            .get("https://openrouter.ai/api/v1/auth/key")
+            .header("Authorization", format!("Bearer {}", key))
+            .send()
+            .await;
+        self.api_key_status = match resp {
+            Ok(r) if r.status().is_success() => "✓ Connected".into(),
+            Ok(r) if r.status() == 401 => "✗ Invalid Key".into(),
+            Ok(_) => "✗ Error".into(),
+            Err(e) => format!("✗ {}", e),
+        };
     }
 }
 
@@ -82,6 +108,8 @@ pub async fn run() -> Result<()> {
 }
 
 async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()> {
+    app.check_api_key().await;
+
     loop {
         terminal.draw(|frame| {
             crate::tui::screens::render(frame, app.current_screen, app);
@@ -125,6 +153,7 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
             if app.current_screen == Screen::Settings && app.settings_editing {
                 match key.code {
                     KeyCode::Enter => {
+                        let edited_api_key = app.settings_category == 1 && app.settings_field == 4;
                         let val = app.settings_edit_buffer.clone();
                         match (app.settings_category, app.settings_field) {
                             (1, 4) => app.settings.llm.api_key = val,
@@ -133,6 +162,9 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                         }
                         app.settings_editing = false;
                         app.save_settings();
+                        if edited_api_key {
+                            app.check_api_key().await;
+                        }
                     }
                     KeyCode::Esc => {
                         app.settings_editing = false;
@@ -158,7 +190,12 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                 }
                 KeyCode::Char(c) => {
                     if let Some(screen) = screen_from_key(c) {
+                        let entered_settings =
+                            screen == Screen::Settings && app.current_screen != Screen::Settings;
                         app.current_screen = screen;
+                        if entered_settings {
+                            app.check_api_key().await;
+                        }
                     }
                 }
                 KeyCode::Up => {
@@ -182,7 +219,11 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                     if app.current_screen == Screen::Settings {
                         navigate_settings_category(app, 1);
                     } else {
-                        app.current_screen = app.current_screen.next();
+                        let next = app.current_screen.next();
+                        app.current_screen = next;
+                        if next == Screen::Settings {
+                            app.check_api_key().await;
+                        }
                     }
                 }
                 KeyCode::Enter | KeyCode::Tab if app.current_screen == Screen::Settings => {
