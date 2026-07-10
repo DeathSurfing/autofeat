@@ -4,6 +4,10 @@
 //! reviews the full pipeline, and explains individual transformations.
 //! It never modifies the workflow without user approval.
 
+use crate::dataset::Dataset;
+use crate::workflow::graph::WorkflowGraph;
+use crate::workflow::node::NodeKind;
+
 pub mod explain;
 pub mod planner;
 pub mod prompts;
@@ -29,6 +33,8 @@ pub struct AgentState {
     pub inputting: bool,
     /// Scroll offset for the conversation view.
     pub scroll: usize,
+    /// Whether the AI is currently generating a response.
+    pub waiting: bool,
 }
 
 impl Default for AgentState {
@@ -53,11 +59,19 @@ impl AgentState {
             input: String::new(),
             inputting: false,
             scroll: 0,
+            waiting: false,
         }
     }
 
-    /// Add a user message and generate an assistant response.
-    pub fn send_message(&mut self, text: String) {
+    /// Add a user message and generate an assistant response via the LLM.
+    /// Optionally modifies the workflow based on the AI's suggestions.
+    pub async fn send_message(
+        &mut self,
+        text: String,
+        api_key: &str,
+        dataset: Option<&Dataset>,
+        workflow: &mut WorkflowGraph,
+    ) {
         if text.is_empty() {
             return;
         }
@@ -68,15 +82,93 @@ impl AgentState {
         });
         self.input.clear();
         self.inputting = false;
+        self.waiting = true;
 
-        // TODO: call actual LLM via rig
+        // Build the system prompt
+        let system = prompts::system_prompt(dataset);
+
+        // Call the LLM
+        let reply = match planner::call_llm(api_key, &system, &self.messages).await {
+            Ok(content) => content,
+            Err(e) => {
+                self.messages.push(Message {
+                    role: "Assistant",
+                    content: e,
+                    dataset_summary: None,
+                });
+                self.waiting = false;
+                self.scroll = usize::MAX;
+                return;
+            }
+        };
+
+        // Parse actions from the reply and apply them to the workflow
+        let actions = parse_actions(&reply);
+        for action in &actions {
+            match *action {
+                Action::Add(kind) => workflow.add_node(kind),
+                Action::Remove(kind) => {
+                    // Remove last occurrence of the given kind
+                    if let Some(pos) = workflow.nodes.iter().rposition(|n| n.kind == kind) {
+                        workflow.remove_node(pos);
+                    }
+                }
+            }
+        }
+
+        let message = if actions.is_empty() {
+            reply
+        } else {
+            let action_count = actions.len();
+            format!(
+                "{}\n\n---\n*I've added {} {} to the pipeline. Press W to view your workflow.*",
+                reply,
+                action_count,
+                if action_count == 1 { "step" } else { "steps" },
+            )
+        };
+
         self.messages.push(Message {
             role: "Assistant",
-            content: "I received your message. Full AI integration is coming soon! \
-                     For now, you can set up your API key in Settings."
-                .into(),
+            content: message,
             dataset_summary: None,
         });
+        self.waiting = false;
         self.scroll = usize::MAX;
+    }
+}
+
+pub(crate) enum Action {
+    Add(NodeKind),
+    Remove(NodeKind),
+}
+
+pub(crate) fn parse_actions(reply: &str) -> Vec<Action> {
+    let mut actions = Vec::new();
+    for line in reply.lines() {
+        let line = line.trim();
+        if let Some(kind_name) = line.strip_prefix("ADD ")
+            && let Some(kind) = parse_node_kind(kind_name)
+        {
+            actions.push(Action::Add(kind));
+        } else if let Some(kind_name) = line.strip_prefix("REMOVE ")
+            && let Some(kind) = parse_node_kind(kind_name)
+        {
+            actions.push(Action::Remove(kind));
+        }
+    }
+    actions
+}
+
+pub(crate) fn parse_node_kind(s: &str) -> Option<NodeKind> {
+    match s.trim() {
+        "MedianImputer" => Some(NodeKind::MedianImputer),
+        "MeanImputer" => Some(NodeKind::MeanImputer),
+        "RobustScaler" => Some(NodeKind::RobustScaler),
+        "StandardScaler" => Some(NodeKind::StandardScaler),
+        "OneHotEncoder" => Some(NodeKind::OneHotEncoder),
+        "FrequencyEncoder" => Some(NodeKind::FrequencyEncoder),
+        "PolynomialFeatures" => Some(NodeKind::PolynomialFeatures),
+        _ => None,
     }
 }

@@ -172,7 +172,11 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                     match key.code {
                         KeyCode::Enter => {
                             let text = app.agent.input.clone();
-                            app.agent.send_message(text);
+                            let api_key = app.settings.llm.api_key.clone();
+                            let ds = app.dataset.as_ref().map(|d| d as &Dataset);
+                            app.agent
+                                .send_message(text, &api_key, ds, &mut app.workflow)
+                                .await;
                         }
                         KeyCode::Esc => {
                             app.agent.input.clear();
