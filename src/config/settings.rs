@@ -2,21 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Theme variant selection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum ThemeVariant {
-    /// Dark color scheme.
-    #[default]
-    Dark,
-    /// Light color scheme.
-    Light,
-}
-
-impl ThemeVariant {
-    /// All available theme variants.
-    pub const ALL: [ThemeVariant; 2] = [ThemeVariant::Dark, ThemeVariant::Light];
-}
-
 /// LLM provider configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmSettings {
@@ -28,6 +13,8 @@ pub struct LlmSettings {
     pub temperature: f64,
     /// Maximum tokens per response.
     pub max_tokens: u32,
+    /// API key for the LLM provider.
+    pub api_key: String,
 }
 
 impl Default for LlmSettings {
@@ -37,6 +24,7 @@ impl Default for LlmSettings {
             model: "gpt-4o".into(),
             temperature: 0.7,
             max_tokens: 4096,
+            api_key: String::new(),
         }
     }
 }
@@ -89,8 +77,6 @@ impl Default for EvaluationSettings {
 /// Top-level user settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    /// Selected theme variant.
-    pub theme_variant: ThemeVariant,
     /// Enable verbose logging.
     pub verbose_logging: bool,
     /// Enable automatic saving of pipeline state.
@@ -107,7 +93,6 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            theme_variant: ThemeVariant::default(),
             verbose_logging: false,
             auto_save: true,
             llm: LlmSettings::default(),

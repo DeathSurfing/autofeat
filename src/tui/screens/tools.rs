@@ -2,8 +2,10 @@
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, Borders, Paragraph};
+
+use crate::config::theme::Catppuccin;
 
 /// Render the Tools screen inside the given area.
 pub fn render(frame: &mut Frame, area: Rect) {
@@ -11,11 +13,11 @@ pub fn render(frame: &mut Frame, area: Rect) {
         .title(" Tools ")
         .title_alignment(ratatui::layout::Alignment::Center)
         .borders(Borders::ALL)
-        .style(Style::new().fg(Color::White));
+        .style(Style::new().fg(Catppuccin::SUBTEXT0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     let text = Paragraph::new("Tool execution history and runtime metrics will appear here.")
-        .style(Style::new().add_modifier(Modifier::DIM));
+        .style(Style::new().fg(Catppuccin::OVERLAY0));
     frame.render_widget(text, inner);
 }

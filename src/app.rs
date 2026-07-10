@@ -1,8 +1,8 @@
 //! Application state, event loop, and screen routing.
 
 use crate::config::settings::Settings;
-use crate::tui::screens::settings;
 use crate::tui::screens::Screen;
+use crate::tui::screens::settings;
 use crossterm::event::{self, Event, KeyCode};
 
 /// App-level result type.
@@ -18,6 +18,10 @@ pub struct App {
     pub settings_category: usize,
     /// Selected field index on the Settings screen.
     pub settings_field: usize,
+    /// Whether the user is editing a text field on the Settings screen.
+    pub settings_editing: bool,
+    /// Buffer for in-progress text input.
+    pub settings_edit_buffer: String,
 }
 
 impl App {
@@ -27,6 +31,8 @@ impl App {
             settings: Settings::default(),
             settings_category: 0,
             settings_field: 0,
+            settings_editing: false,
+            settings_edit_buffer: String::new(),
         }
     }
 }
@@ -49,10 +55,37 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
         if event::poll(std::time::Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
         {
+            // Text editing mode on the Settings screen
+            if app.current_screen == Screen::Settings && app.settings_editing {
+                match key.code {
+                    KeyCode::Enter => {
+                        app.settings.llm.api_key = app.settings_edit_buffer.clone();
+                        app.settings_editing = false;
+                    }
+                    KeyCode::Esc => {
+                        app.settings_editing = false;
+                    }
+                    KeyCode::Backspace => {
+                        app.settings_edit_buffer.pop();
+                    }
+                    KeyCode::Char(c) => {
+                        app.settings_edit_buffer.push(c);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
+
             match key.code {
                 KeyCode::Char('q' | 'Q') => break,
                 KeyCode::Char(' ') if app.current_screen == Screen::Settings => {
-                    handle_settings_action(app);
+                    if app.settings_category == 1 && app.settings_field == 4 {
+                        // API Key — enter text editing mode
+                        app.settings_edit_buffer = app.settings.llm.api_key.clone();
+                        app.settings_editing = true;
+                    } else {
+                        handle_settings_action(app);
+                    }
                 }
                 KeyCode::Char(c) => {
                     if let Some(screen) = screen_from_key(c) {
@@ -83,8 +116,13 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                         app.current_screen = app.current_screen.next();
                     }
                 }
-                KeyCode::Enter if app.current_screen == Screen::Settings => {
-                    handle_settings_action(app);
+                KeyCode::Enter | KeyCode::Tab if app.current_screen == Screen::Settings => {
+                    if app.settings_category == 1 && app.settings_field == 4 {
+                        app.settings_edit_buffer = app.settings.llm.api_key.clone();
+                        app.settings_editing = true;
+                    } else {
+                        handle_settings_action(app);
+                    }
                 }
                 _ => {}
             }
@@ -108,17 +146,17 @@ fn screen_from_key(c: char) -> Option<Screen> {
 
 fn field_count(category: usize) -> usize {
     match category {
-        0 => 3, // General: Theme, Verbose Logging, Auto Save
-        1 => 4, // LLM: Provider, Model, Temperature, Max Tokens
-        2 => 5, // Pipeline: Feature Generation, Scaling, Encoding, Polynomial, Datetime
+        0 => 2, // General: Verbose Logging, Auto Save
+        1 => 5, // LLM: Provider, Model, Temperature, Max Tokens, API Key
+        2 => 5, // Pipeline: 5 toggles
         3 => 2, // Evaluation: Metric, Cross Validation
-        4 => 4, // Diagnostics: OpenRouter, API Key, featrs, Rust version
+        4 => 4, // Diagnostics: 4 read-only fields
         _ => 0,
     }
 }
 
 fn navigate_settings_category(app: &mut App, delta: isize) {
-    let len = 5; // CATEGORIES.len()
+    let len = 5;
     let next = (app.settings_category as isize + delta).rem_euclid(len as isize) as usize;
     app.settings_category = next;
     app.settings_field = app.settings_field.min(field_count(next).saturating_sub(1));

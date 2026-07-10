@@ -1,45 +1,65 @@
 //! Settings screen — General, LLM, Pipeline, Evaluation, and Diagnostics configuration.
 
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
-use ratatui::Frame;
 
-use crate::config::settings::{Settings, ThemeVariant};
+use crate::config::settings::Settings;
+use crate::config::theme::Catppuccin;
 
 const CATEGORIES: &[&str] = &["General", "LLM", "Pipeline", "Evaluation", "Diagnostics"];
 
 /// Render the Settings screen.
-pub fn render(frame: &mut Frame, area: Rect, settings: &Settings, category: usize, field: usize) {
+pub fn render(
+    frame: &mut Frame,
+    area: Rect,
+    settings: &Settings,
+    category: usize,
+    field: usize,
+    editing: bool,
+    edit_buffer: &str,
+) {
     let horz = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Length(22), Constraint::Min(1)])
         .split(area);
 
     render_categories(frame, horz[0], category);
-    render_fields(frame, horz[1], settings, category, field);
+    render_fields(
+        frame,
+        horz[1],
+        settings,
+        category,
+        field,
+        editing,
+        edit_buffer,
+    );
 }
 
 fn render_categories(frame: &mut Frame, area: Rect, selected: usize) {
     let block = Block::default()
         .title(" Category ")
         .borders(Borders::ALL)
-        .style(Style::new().fg(Color::White));
+        .style(Style::new().fg(Catppuccin::SUBTEXT0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
+
+    let active_style = Style::new()
+        .fg(Catppuccin::CRUST)
+        .bg(Catppuccin::MAUVE)
+        .add_modifier(Modifier::BOLD);
+    let inactive_style = Style::new().fg(Catppuccin::TEXT);
 
     let items: Vec<ListItem> = CATEGORIES
         .iter()
         .enumerate()
         .map(|(i, name)| {
             let style = if i == selected {
-                Style::new()
-                    .fg(Color::Black)
-                    .bg(Color::White)
-                    .add_modifier(Modifier::BOLD)
+                active_style
             } else {
-                Style::new().fg(Color::White)
+                inactive_style
             };
             ListItem::new(format!(" {}", name)).style(style)
         })
@@ -48,33 +68,41 @@ fn render_categories(frame: &mut Frame, area: Rect, selected: usize) {
     frame.render_widget(List::new(items), inner);
 }
 
-fn render_fields(frame: &mut Frame, area: Rect, settings: &Settings, category: usize, field: usize) {
+fn render_fields(
+    frame: &mut Frame,
+    area: Rect,
+    settings: &Settings,
+    category: usize,
+    field: usize,
+    editing: bool,
+    edit_buffer: &str,
+) {
     let block = Block::default()
         .title(format!(" {} ", CATEGORIES[category]))
         .borders(Borders::ALL)
-        .style(Style::new().fg(Color::White));
+        .style(Style::new().fg(Catppuccin::SUBTEXT0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     match category {
         0 => render_general(frame, inner, settings, field),
-        1 => render_llm(frame, inner, settings, field),
+        1 => render_llm(frame, inner, settings, field, editing, edit_buffer),
         2 => render_pipeline(frame, inner, settings, field),
         3 => render_evaluation(frame, inner, settings, field),
-        4 => render_diagnostics(frame, inner, settings, field),
+        4 => render_diagnostics(frame, inner, field),
         _ => {}
     }
 }
 
-fn field_style(selected: bool) -> Style {
-    if selected {
-        Style::new()
-            .fg(Color::Black)
-            .bg(Color::White)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::new().fg(Color::White)
-    }
+fn selected_style() -> Style {
+    Style::new()
+        .fg(Catppuccin::CRUST)
+        .bg(Catppuccin::MAUVE)
+        .add_modifier(Modifier::BOLD)
+}
+
+fn inactive_style() -> Style {
+    Style::new().fg(Catppuccin::TEXT)
 }
 
 fn bool_str(v: bool) -> &'static str {
@@ -84,66 +112,138 @@ fn bool_str(v: bool) -> &'static str {
 // ── General ──
 
 fn render_general(frame: &mut Frame, area: Rect, settings: &Settings, field: usize) {
-    let labels = ["Theme", "Verbose Logging", "Auto Save"];
+    let labels = ["Verbose Logging", "Auto Save"];
+    let values = [settings.verbose_logging, settings.auto_save];
     let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {
-        let value = match i {
-            0 => format!("{:?}", settings.theme_variant),
-            1 => bool_str(settings.verbose_logging).to_string(),
-            2 => bool_str(settings.auto_save).to_string(),
-            _ => unreachable!(),
+        let style = if i == field {
+            selected_style()
+        } else {
+            inactive_style()
         };
-        let style = field_style(i == field);
-        let text = format!(" {}  {}", label, value);
-        lines.push(Line::styled(text, style));
+        lines.push(Line::styled(
+            format!(" {}  {}", label, bool_str(values[i])),
+            style,
+        ));
         lines.push(Line::from(""));
     }
-
-    frame.render_widget(Paragraph::new(ratatui::text::Text::from(lines)), area);
+    frame.render_widget(Paragraph::new(lines), area);
 }
 
 /// Handle interaction for the General category.
 pub fn handle_general(settings: &mut Settings, field: usize) {
     match field {
-        0 => {
-            let idx = ThemeVariant::ALL
-                .iter()
-                .position(|t| *t == settings.theme_variant)
-                .unwrap_or(0);
-            settings.theme_variant = ThemeVariant::ALL[(idx + 1) % ThemeVariant::ALL.len()];
-        }
-        1 => settings.verbose_logging = !settings.verbose_logging,
-        2 => settings.auto_save = !settings.auto_save,
+        0 => settings.verbose_logging = !settings.verbose_logging,
+        1 => settings.auto_save = !settings.auto_save,
         _ => {}
     }
 }
 
 // ── LLM ──
 
-fn render_llm(frame: &mut Frame, area: Rect, settings: &Settings, field: usize) {
-    let labels = ["Provider", "Model", "Temperature", "Max Tokens"];
+const PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "cohere", "google"];
+
+const MODELS: &[&str] = &[
+    "gpt-4o",
+    "gpt-4o-mini",
+    "claude-3-opus",
+    "claude-3-sonnet",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "command-r-plus",
+];
+
+const TEMPS: &[f64] = &[0.0, 0.1, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0];
+
+const TOKENS: &[u32] = &[1024, 2048, 4096, 8192, 16384, 32768];
+
+fn mask_key(key: &str) -> String {
+    if key.is_empty() {
+        "(not set)".into()
+    } else {
+        "••••••••".into()
+    }
+}
+
+fn render_llm(
+    frame: &mut Frame,
+    area: Rect,
+    settings: &Settings,
+    field: usize,
+    editing: bool,
+    edit_buffer: &str,
+) {
+    let labels = ["Provider", "Model", "Temperature", "Max Tokens", "API Key"];
     let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {
+        let is_selected = i == field;
+        let style = if is_selected {
+            selected_style()
+        } else {
+            inactive_style()
+        };
+
         let value = match i {
             0 => settings.llm.provider.clone(),
             1 => settings.llm.model.clone(),
             2 => format!("{:.1}", settings.llm.temperature),
             3 => format!("{}", settings.llm.max_tokens),
+            4 => {
+                if editing && is_selected {
+                    if edit_buffer.is_empty() {
+                        "(type and press Enter)".into()
+                    } else {
+                        edit_buffer.into()
+                    }
+                } else {
+                    mask_key(&settings.llm.api_key)
+                }
+            }
             _ => unreachable!(),
         };
-        let style = field_style(i == field);
+
         lines.push(Line::styled(format!(" {}  {}", label, value), style));
         lines.push(Line::from(""));
     }
-
     frame.render_widget(Paragraph::new(lines), area);
 }
 
 /// Handle interaction for the LLM category.
-pub fn handle_llm(_settings: &mut Settings, _field: usize) {
-    // TODO: implement field editing for provider/model/temperature/max_tokens
+pub fn handle_llm(settings: &mut Settings, field: usize) {
+    match field {
+        0 => {
+            let idx = PROVIDERS
+                .iter()
+                .position(|p| *p == settings.llm.provider)
+                .unwrap_or(0);
+            settings.llm.provider = PROVIDERS[(idx + 1) % PROVIDERS.len()].to_string();
+        }
+        1 => {
+            let idx = MODELS
+                .iter()
+                .position(|m| *m == settings.llm.model)
+                .unwrap_or(0);
+            settings.llm.model = MODELS[(idx + 1) % MODELS.len()].to_string();
+        }
+        2 => {
+            let idx = TEMPS
+                .iter()
+                .position(|t| (*t - settings.llm.temperature).abs() < 0.01)
+                .unwrap_or(0);
+            settings.llm.temperature = TEMPS[(idx + 1) % TEMPS.len()];
+        }
+        3 => {
+            let idx = TOKENS
+                .iter()
+                .position(|t| *t == settings.llm.max_tokens)
+                .unwrap_or(0);
+            settings.llm.max_tokens = TOKENS[(idx + 1) % TOKENS.len()];
+        }
+        // API Key is handled via text editing — see app.rs
+        _ => {}
+    }
 }
 
 // ── Pipeline ──
@@ -156,8 +256,6 @@ fn render_pipeline(frame: &mut Frame, area: Rect, settings: &Settings, field: us
         "Polynomial Features",
         "Datetime Features",
     ];
-    let mut lines = Vec::new();
-
     let values = [
         settings.pipeline.feature_generation,
         settings.pipeline.scaling,
@@ -165,16 +263,20 @@ fn render_pipeline(frame: &mut Frame, area: Rect, settings: &Settings, field: us
         settings.pipeline.polynomial_features,
         settings.pipeline.datetime_features,
     ];
+    let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {
-        let style = field_style(i == field);
+        let style = if i == field {
+            selected_style()
+        } else {
+            inactive_style()
+        };
         lines.push(Line::styled(
             format!(" {}  {}", label, bool_str(values[i])),
             style,
         ));
         lines.push(Line::from(""));
     }
-
     frame.render_widget(Paragraph::new(lines), area);
 }
 
@@ -196,19 +298,21 @@ const METRICS: &[&str] = &["RMSE", "MAE", "Accuracy", "F1"];
 
 fn render_evaluation(frame: &mut Frame, area: Rect, settings: &Settings, field: usize) {
     let labels = ["Metric", "Cross Validation"];
+    let values: [String; 2] = [
+        settings.evaluation.metric.clone(),
+        format!("{}", settings.evaluation.cross_validation),
+    ];
     let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {
-        let value = match i {
-            0 => settings.evaluation.metric.clone(),
-            1 => format!("{}", settings.evaluation.cross_validation),
-            _ => unreachable!(),
+        let style = if i == field {
+            selected_style()
+        } else {
+            inactive_style()
         };
-        let style = field_style(i == field);
-        lines.push(Line::styled(format!(" {}  {}", label, value), style));
+        lines.push(Line::styled(format!(" {}  {}", label, values[i]), style));
         lines.push(Line::from(""));
     }
-
     frame.render_widget(Paragraph::new(lines), area);
 }
 
@@ -235,23 +339,24 @@ pub fn handle_evaluation(settings: &mut Settings, field: usize) {
 
 // ── Diagnostics ──
 
-fn render_diagnostics(frame: &mut Frame, area: Rect, _settings: &Settings, field: usize) {
-    let labels = ["OpenRouter Connection", "API Key Status", "featrs Loaded", "Rust Version"];
+fn render_diagnostics(frame: &mut Frame, area: Rect, field: usize) {
+    let labels = [
+        "OpenRouter Connection",
+        "API Key Status",
+        "featrs Loaded",
+        "Rust Version",
+    ];
     let values = ["—", "—", "✓", "1.96.1"];
     let mut lines = Vec::new();
 
     for (i, label) in labels.iter().enumerate() {
-        let style = Style::new().add_modifier(Modifier::DIM).fg(if i == field {
-            Color::White
+        let style = if i == field {
+            Style::new().fg(Catppuccin::TEXT)
         } else {
-            Color::Gray
-        });
-        lines.push(Line::styled(
-            format!(" {}  {}", label, values[i]),
-            style,
-        ));
+            Style::new().fg(Catppuccin::OVERLAY0)
+        };
+        lines.push(Line::styled(format!(" {}  {}", label, values[i]), style));
         lines.push(Line::from(""));
     }
-
     frame.render_widget(Paragraph::new(lines), area);
 }

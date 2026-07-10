@@ -40,7 +40,6 @@ pub mod prelude {
     pub use crate::app::App;
     pub use crate::cli::Cli;
     pub use crate::config::settings::Settings;
-    pub use crate::config::theme::Theme;
     pub use crate::workflow::graph::WorkflowGraph;
     pub use crate::workflow::node::Node;
     pub use crate::workflow::node::NodeKind;

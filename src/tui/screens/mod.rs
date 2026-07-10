@@ -2,11 +2,12 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 
 use crate::app::App;
+use crate::config::theme::Catppuccin;
 
 pub mod agent;
 pub mod dataset;
@@ -111,10 +112,10 @@ pub fn render(frame: &mut Frame, screen: Screen, app: &App) {
 
 fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
     let active_style = Style::new()
-        .fg(Color::Black)
-        .bg(Color::White)
+        .fg(Catppuccin::CRUST)
+        .bg(Catppuccin::MAUVE)
         .add_modifier(Modifier::BOLD);
-    let inactive_style = Style::new().fg(Color::White).bg(Color::Reset);
+    let inactive_style = Style::new().fg(Catppuccin::SUBTEXT0);
 
     let mut spans = Vec::new();
     for s in Screen::ALL.iter() {
@@ -134,7 +135,7 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
         spans.push(span);
         spans.push(ratatui::text::Span::styled(
             " │ ",
-            Style::new().fg(Color::DarkGray),
+            Style::new().fg(Catppuccin::SURFACE2),
         ));
     }
     spans.pop();
@@ -148,7 +149,13 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
         Screen::Workflow => workflow::render(frame, area),
         Screen::Tools => tools::render(frame, area),
         Screen::Settings => settings::render(
-            frame, area, &app.settings, app.settings_category, app.settings_field,
+            frame,
+            area,
+            &app.settings,
+            app.settings_category,
+            app.settings_field,
+            app.settings_editing,
+            &app.settings_edit_buffer,
         ),
         Screen::Help => help::render(frame, area),
     }
@@ -157,7 +164,7 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
 fn render_status_bar(frame: &mut Frame, area: Rect, _screen: Screen) {
     let text = " ◄/► Navigate  |  [Q] Quit  |  [I] AI Suggestions  |  [R] Review";
     frame.render_widget(
-        Paragraph::new(text).style(Style::new().add_modifier(Modifier::DIM)),
+        Paragraph::new(text).style(Style::new().fg(Catppuccin::OVERLAY0)),
         area,
     );
 }
