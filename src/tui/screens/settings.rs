@@ -161,11 +161,20 @@ const PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "cohere", "goo
 const MODELS: &[&str] = &[
     "gpt-4o",
     "gpt-4o-mini",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
     "claude-3-opus",
     "claude-3-sonnet",
+    "claude-3-haiku",
+    "claude-4-opus",
+    "claude-4-sonnet",
     "gemini-1.5-pro",
     "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-pro",
     "command-r-plus",
+    "Custom...",
 ];
 
 const TEMPS: &[f64] = &[0.0, 0.1, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0];
@@ -201,7 +210,17 @@ fn render_llm(
 
         let value = match i {
             0 => settings.llm.provider.clone(),
-            1 => settings.llm.model.clone(),
+            1 => {
+                if editing && is_selected {
+                    if edit_buffer.is_empty() {
+                        "(type model name and press Enter)".into()
+                    } else {
+                        edit_buffer.into()
+                    }
+                } else {
+                    settings.llm.model.clone()
+                }
+            }
             2 => format!("{:.1}", settings.llm.temperature),
             3 => format!("{}", settings.llm.max_tokens),
             4 => {

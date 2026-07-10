@@ -125,7 +125,12 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
             if app.current_screen == Screen::Settings && app.settings_editing {
                 match key.code {
                     KeyCode::Enter => {
-                        app.settings.llm.api_key = app.settings_edit_buffer.clone();
+                        let val = app.settings_edit_buffer.clone();
+                        match (app.settings_category, app.settings_field) {
+                            (1, 4) => app.settings.llm.api_key = val,
+                            (1, 1) => app.settings.llm.model = val,
+                            _ => {}
+                        }
                         app.settings_editing = false;
                         app.save_settings();
                     }
@@ -308,6 +313,15 @@ fn popover_confirm(app: &mut App) {
         return;
     }
     let value = &app.settings_popover_filtered[app.settings_popover_selected];
+
+    // "Custom..." enters text editing mode for the model field
+    if app.settings_popover_cat == 1 && app.settings_popover_field == 1 && value == "Custom..." {
+        popover_close(app);
+        app.settings_edit_buffer = app.settings.llm.model.clone();
+        app.settings_editing = true;
+        return;
+    }
+
     match (app.settings_popover_cat, app.settings_popover_field) {
         (1, 1) => app.settings.llm.model = value.clone(),
         (1, 2) => {
