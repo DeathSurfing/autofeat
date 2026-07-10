@@ -164,6 +164,7 @@ pub fn field_options(cat: usize, field: usize) -> Option<(Vec<String>, &'static 
 const PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "cohere", "google"];
 
 const MODELS: &[&str] = &[
+    "openai/gpt-oss-120b:free",
     "google/gemini-2.0-flash-exp:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "microsoft/phi-4:free",
