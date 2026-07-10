@@ -1,6 +1,9 @@
 //! Ratatui style definitions and theme configuration.
 
+use crate::config::settings::ThemeVariant;
+
 /// Theme definition containing Ratatui styles for the entire UI.
 pub struct Theme {
-    // TODO: style definitions for each screen and widget
+    /// Selected theme variant.
+    pub variant: ThemeVariant,
 }

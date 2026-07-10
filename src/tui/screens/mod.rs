@@ -6,6 +6,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 
+use crate::app::App;
+
 pub mod agent;
 pub mod dataset;
 pub mod help;
@@ -92,7 +94,7 @@ impl Screen {
 }
 
 /// Render the active screen (tab bar + content + status bar) into the frame.
-pub fn render(frame: &mut Frame, screen: Screen) {
+pub fn render(frame: &mut Frame, screen: Screen, app: &App) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -103,7 +105,7 @@ pub fn render(frame: &mut Frame, screen: Screen) {
         .split(frame.area());
 
     render_tab_bar(frame, layout[0], screen);
-    render_content(frame, layout[1], screen);
+    render_content(frame, layout[1], screen, app);
     render_status_bar(frame, layout[2], screen);
 }
 
@@ -139,13 +141,15 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn render_content(frame: &mut Frame, area: Rect, screen: Screen) {
+fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
     match screen {
         Screen::Agent => agent::render(frame, area),
         Screen::Dataset => dataset::render(frame, area),
         Screen::Workflow => workflow::render(frame, area),
         Screen::Tools => tools::render(frame, area),
-        Screen::Settings => settings::render(frame, area),
+        Screen::Settings => settings::render(
+            frame, area, &app.settings, app.settings_category, app.settings_field,
+        ),
         Screen::Help => help::render(frame, area),
     }
 }
