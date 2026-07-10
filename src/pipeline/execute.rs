@@ -84,19 +84,41 @@ fn apply_transform(
             scaler.transform(df.clone()).map_err(Into::into)
         }
         NodeKind::OneHotEncoder => {
+            let (string_df, string_names) = filter_string_columns(df);
+            if string_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut encoder = OneHotEncoder::new();
-            encoder.fit(df.clone())?;
-            encoder.transform(df.clone()).map_err(Into::into)
+            encoder.fit(string_df.clone())?;
+            let encoded = encoder.transform(string_df)?;
+            let mut result = df.clone();
+            for name in &string_names {
+                let _ = result.drop_in_place(name);
+            }
+            for ec in encoded.columns() {
+                let _ = result.hstack_mut(std::slice::from_ref(ec));
+            }
+            Ok(result)
         }
         NodeKind::TargetEncoder => {
-            // TargetEncoder needs a target column — skip for now
             Err("TargetEncoder requires a target column — not implemented yet".into())
         }
         NodeKind::FrequencyEncoder => {
-            // Use OrdinalEncoder as a stand-in
+            let (string_df, string_names) = filter_string_columns(df);
+            if string_df.width() == 0 {
+                return Ok(df.clone());
+            }
             let mut encoder = OrdinalEncoder::new();
-            encoder.fit(df.clone())?;
-            encoder.transform(df.clone()).map_err(Into::into)
+            encoder.fit(string_df.clone())?;
+            let encoded = encoder.transform(string_df)?;
+            let mut result = df.clone();
+            for name in &string_names {
+                let _ = result.drop_in_place(name);
+            }
+            for ec in encoded.columns() {
+                let _ = result.hstack_mut(std::slice::from_ref(ec));
+            }
+            Ok(result)
         }
         NodeKind::PolynomialFeatures => {
             let mut pf = PolynomialFeatures::new(2)?;
@@ -105,6 +127,29 @@ fn apply_transform(
         }
         NodeKind::DatetimeFeatures => Err("DatetimeFeatures not yet implemented in featrs".into()),
     }
+}
+
+/// Filter a DataFrame to only String columns, returning the filtered DF and column names.
+fn filter_string_columns(df: &DataFrame) -> (DataFrame, Vec<String>) {
+    let mut names = Vec::new();
+    let cols: Vec<Column> = df
+        .columns()
+        .iter()
+        .filter_map(|col| {
+            let s = col.as_series()?;
+            if matches!(s.dtype(), DataType::String) {
+                names.push(s.name().to_string());
+                Some(col.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    if names.is_empty() {
+        return (DataFrame::default(), Vec::new());
+    }
+    let filtered = DataFrame::new(df.height(), cols).unwrap_or_default();
+    (filtered, names)
 }
 
 /// Cast all numeric integer columns to Float64 so featrs transformers can process them.
