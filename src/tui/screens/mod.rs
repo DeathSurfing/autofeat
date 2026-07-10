@@ -4,7 +4,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 
 use crate::app::App;
 use crate::config::theme::Catppuccin;
@@ -108,6 +108,78 @@ pub fn render(frame: &mut Frame, screen: Screen, app: &App) {
     render_tab_bar(frame, layout[0], screen);
     render_content(frame, layout[1], screen, app);
     render_status_bar(frame, layout[2], screen);
+
+    if screen == Screen::Settings && app.settings_popover {
+        render_popover(frame, app);
+    }
+}
+
+fn render_popover(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let popup = centered_rect(60, 50, area);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .title(format!(" {} ", app.settings_popover_title))
+        .borders(Borders::ALL)
+        .style(Style::new().fg(Catppuccin::MAUVE).bg(Catppuccin::MANTLE));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(1)])
+        .split(inner);
+
+    // Filter input line
+    let filter_text = if app.settings_popover_filter.is_empty() {
+        "(type to filter...)"
+    } else {
+        &app.settings_popover_filter
+    };
+    frame.render_widget(
+        Paragraph::new(filter_text)
+            .style(Style::new().fg(Catppuccin::TEXT).bg(Catppuccin::SURFACE0)),
+        vert[0],
+    );
+
+    // Option list
+    let items: Vec<ListItem> = app
+        .settings_popover_filtered
+        .iter()
+        .enumerate()
+        .map(|(i, opt)| {
+            let style = if i == app.settings_popover_selected {
+                Style::new()
+                    .fg(Catppuccin::CRUST)
+                    .bg(Catppuccin::MAUVE)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::new().fg(Catppuccin::TEXT)
+            };
+            ListItem::new(opt.as_str()).style(style)
+        })
+        .collect();
+    frame.render_widget(List::new(items), vert[1]);
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let popup = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(area);
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup[1])[1]
 }
 
 fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {

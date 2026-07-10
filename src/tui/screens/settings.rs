@@ -140,6 +140,20 @@ pub fn handle_general(settings: &mut Settings, field: usize) {
     }
 }
 
+/// Get selectable options for a multi-option field with >5 choices.
+/// Returns `(options, field_label)` or `None` if the field doesn't qualify.
+pub fn field_options(cat: usize, field: usize) -> Option<(Vec<String>, &'static str)> {
+    match (cat, field) {
+        (1, 1) => Some((MODELS.iter().map(|s| s.to_string()).collect(), "Model")),
+        (1, 2) => Some((
+            TEMPS.iter().map(|t| format!("{:.1}", t)).collect(),
+            "Temperature",
+        )),
+        (1, 3) => Some((TOKENS.iter().map(|t| t.to_string()).collect(), "Max Tokens")),
+        _ => None,
+    }
+}
+
 // ── LLM ──
 
 const PROVIDERS: &[&str] = &["openrouter", "openai", "anthropic", "cohere", "google"];
