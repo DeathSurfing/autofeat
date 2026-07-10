@@ -1,9 +1,9 @@
 //! Help screen — keyboard shortcuts reference.
 
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 
 /// Render the Help screen inside the given area.
 pub fn render(frame: &mut Frame, area: Rect) {
@@ -34,7 +34,6 @@ pub fn render(frame: &mut Frame, area: Rect) {
         "  Ctrl+S   Save",
         "  Q        Quit",
     ];
-    let text = Paragraph::new(lines.join("\n"))
-        .style(Style::new().add_modifier(Modifier::DIM));
+    let text = Paragraph::new(lines.join("\n")).style(Style::new().add_modifier(Modifier::DIM));
     frame.render_widget(text, inner);
 }

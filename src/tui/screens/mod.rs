@@ -1,10 +1,10 @@
 //! TUI screens for each major application view.
 
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
-use ratatui::Frame;
 
 pub mod agent;
 pub mod dataset;
@@ -117,7 +117,11 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
     let mut spans = Vec::new();
     for s in Screen::ALL.iter() {
         let is_active = *s == active;
-        let style = if is_active { active_style } else { inactive_style };
+        let style = if is_active {
+            active_style
+        } else {
+            inactive_style
+        };
         let label = format!(" {} ", s.label());
         let key = s.key_hint();
         let span = if is_active {

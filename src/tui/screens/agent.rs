@@ -1,9 +1,9 @@
 //! Agent screen — live AI reasoning, tool execution, and conversation.
 
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 
 /// Render the Agent screen inside the given area.
 pub fn render(frame: &mut Frame, area: Rect) {

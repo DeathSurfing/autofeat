@@ -1,9 +1,9 @@
 //! Dataset screen — schema, statistics, distributions, null counts, column explorer.
 
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 
 /// Render the Dataset screen inside the given area.
 pub fn render(frame: &mut Frame, area: Rect) {
