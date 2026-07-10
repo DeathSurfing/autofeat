@@ -1,6 +1,8 @@
 //! Application state, event loop, and screen routing.
 
+use crate::cli::Cli;
 use crate::config::settings::Settings;
+use crate::dataset::Dataset;
 use crate::tui::screens::Screen;
 use crate::tui::screens::settings;
 use crossterm::event::{self, Event, KeyCode};
@@ -14,6 +16,12 @@ pub struct App {
     pub current_screen: Screen,
     /// Application settings.
     pub settings: Settings,
+
+    // Dataset
+    /// Loaded dataset (None if not loaded).
+    pub dataset: Option<Dataset>,
+    /// Selected column index on the Dataset screen.
+    pub dataset_selected_column: usize,
 
     // Settings screen navigation
     /// Selected category index on the Settings screen.
@@ -50,11 +58,17 @@ pub struct App {
 }
 
 impl App {
-    fn new() -> Self {
+    fn new(cli: Cli) -> Self {
         let settings = Settings::load();
+        let dataset = cli
+            .dataset
+            .as_ref()
+            .and_then(|p| Dataset::from_csv(std::path::Path::new(p)).ok());
         Self {
             current_screen: Screen::default(),
             settings,
+            dataset,
+            dataset_selected_column: 0,
             settings_category: 0,
             settings_field: 0,
             settings_editing: false,
@@ -99,9 +113,9 @@ impl App {
 }
 
 /// Run the main TUI event loop.
-pub async fn run() -> Result<()> {
+pub async fn run(cli: Cli) -> Result<()> {
     let mut terminal = ratatui::init();
-    let mut app = App::new();
+    let mut app = App::new(cli);
     let result = run_app(&mut terminal, &mut app).await;
     ratatui::restore();
     result
@@ -201,11 +215,15 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                 KeyCode::Up => {
                     if app.current_screen == Screen::Settings {
                         navigate_settings_field(app, -1);
+                    } else if app.current_screen == Screen::Dataset {
+                        navigate_dataset_column(app, -1);
                     }
                 }
                 KeyCode::Down => {
                     if app.current_screen == Screen::Settings {
                         navigate_settings_field(app, 1);
+                    } else if app.current_screen == Screen::Dataset {
+                        navigate_dataset_column(app, 1);
                     }
                 }
                 KeyCode::Left => {
@@ -249,6 +267,17 @@ fn screen_from_key(c: char) -> Option<Screen> {
     }
 }
 
+// ── Dataset navigation helpers ──
+
+fn navigate_dataset_column(app: &mut App, delta: isize) {
+    let count = app.dataset.as_ref().map(|d| d.columns.len()).unwrap_or(0);
+    if count == 0 {
+        return;
+    }
+    let next = (app.dataset_selected_column as isize + delta).rem_euclid(count as isize) as usize;
+    app.dataset_selected_column = next;
+}
+
 // ── Settings navigation helpers ──
 
 fn field_count(category: usize) -> usize {
@@ -281,14 +310,12 @@ fn navigate_settings_field(app: &mut App, delta: isize) {
 // ── Settings interaction dispatch ──
 
 fn settings_interact(app: &mut App) {
-    // API Key — enter text editing
     if app.settings_category == 1 && app.settings_field == 4 {
         app.settings_edit_buffer = app.settings.llm.api_key.clone();
         app.settings_editing = true;
         return;
     }
 
-    // Multi-option fields with >5 choices — open popover
     if let Some((options, title)) =
         settings::field_options(app.settings_category, app.settings_field)
     {
@@ -296,7 +323,6 @@ fn settings_interact(app: &mut App) {
         return;
     }
 
-    // Default: cycle / toggle
     handle_settings_action(app);
 }
 
@@ -355,7 +381,6 @@ fn popover_confirm(app: &mut App) {
     }
     let value = &app.settings_popover_filtered[app.settings_popover_selected];
 
-    // "Custom..." enters text editing mode for the model field
     if app.settings_popover_cat == 1 && app.settings_popover_field == 1 && value == "Custom..." {
         popover_close(app);
         app.settings_edit_buffer = app.settings.llm.model.clone();

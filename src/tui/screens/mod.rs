@@ -217,7 +217,12 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
 fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
     match screen {
         Screen::Agent => agent::render(frame, area),
-        Screen::Dataset => dataset::render(frame, area),
+        Screen::Dataset => dataset::render(
+            frame,
+            area,
+            app.dataset.as_ref(),
+            app.dataset_selected_column,
+        ),
         Screen::Workflow => workflow::render(frame, area),
         Screen::Tools => tools::render(frame, area),
         Screen::Settings => settings::render(

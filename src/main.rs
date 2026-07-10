@@ -4,11 +4,11 @@ use clap::Parser;
 
 #[tokio::main]
 async fn main() -> app::Result<()> {
-    let _cli = Cli::parse();
+    let cli = Cli::parse();
 
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    app::run().await
+    app::run(cli).await
 }
