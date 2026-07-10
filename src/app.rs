@@ -138,43 +138,50 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
         if event::poll(std::time::Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
         {
-            // Agent screen — text input for conversation
+            // Agent screen — input popover vs browse mode
             if app.current_screen == Screen::Agent {
-                // Ctrl+ shortcuts on Agent screen
-                if key
-                    .modifiers
-                    .contains(crossterm::event::KeyModifiers::CONTROL)
-                {
-                    if let KeyCode::Char(c) = key.code {
-                        if c == 'q' || c == 'Q' {
+                if app.agent.inputting {
+                    // Input popover: all keys go to text entry
+                    match key.code {
+                        KeyCode::Enter => {
+                            let text = app.agent.input.clone();
+                            app.agent.send_message(text);
+                        }
+                        KeyCode::Esc => {
+                            app.agent.input.clear();
+                            app.agent.inputting = false;
+                        }
+                        KeyCode::Backspace => {
+                            app.agent.input.pop();
+                        }
+                        KeyCode::Char(c) => {
+                            app.agent.input.push(c);
+                        }
+                        _ => {}
+                    }
+                } else {
+                    // Browse mode: keyboard shortcuts work normally
+                    match key.code {
+                        KeyCode::Enter => {
+                            app.agent.inputting = true;
+                        }
+                        KeyCode::Up => {
+                            app.agent.scroll = app.agent.scroll.saturating_sub(1);
+                        }
+                        KeyCode::Down => {
+                            app.agent.scroll = app.agent.scroll.saturating_add(1);
+                        }
+                        KeyCode::Char('q' | 'Q') => {
                             app.save_settings();
                             break;
                         }
-                        if let Some(screen) = screen_from_key(c) {
-                            app.current_screen = screen;
+                        KeyCode::Char(c) => {
+                            if let Some(screen) = screen_from_key(c) {
+                                app.current_screen = screen;
+                            }
                         }
+                        _ => {}
                     }
-                    continue;
-                }
-                match key.code {
-                    KeyCode::Enter => {
-                        let text = app.agent.input.clone();
-                        app.agent.send_message(text);
-                    }
-                    KeyCode::Esc => app.agent.input.clear(),
-                    KeyCode::Backspace => {
-                        app.agent.input.pop();
-                    }
-                    KeyCode::Up => {
-                        app.agent.scroll = app.agent.scroll.saturating_sub(1);
-                    }
-                    KeyCode::Down => {
-                        app.agent.scroll = app.agent.scroll.saturating_add(1);
-                    }
-                    KeyCode::Char(c) => {
-                        app.agent.input.push(c);
-                    }
-                    _ => {}
                 }
                 continue;
             }

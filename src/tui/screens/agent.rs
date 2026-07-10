@@ -13,11 +13,11 @@ use crate::config::theme::Catppuccin;
 pub fn render(frame: &mut Frame, area: Rect, agent: &AgentState) {
     let vert = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(3)])
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
         .split(area);
 
     render_conversation(frame, vert[0], agent);
-    render_input(frame, vert[1], agent);
+    render_hint(frame, vert[1], agent);
 }
 
 fn render_conversation(frame: &mut Frame, area: Rect, agent: &AgentState) {
@@ -55,7 +55,6 @@ fn render_conversation(frame: &mut Frame, area: Rect, agent: &AgentState) {
     let visible = inner.height as usize;
     let total = lines.len();
     let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
-    // Auto-scroll: start from the end minus visible height (estimated)
     let scroll = if agent.scroll == usize::MAX {
         total.saturating_sub(visible).min(total)
     } else {
@@ -64,21 +63,18 @@ fn render_conversation(frame: &mut Frame, area: Rect, agent: &AgentState) {
     frame.render_widget(paragraph.scroll((scroll as u16, 0)), inner);
 }
 
-fn render_input(frame: &mut Frame, area: Rect, agent: &AgentState) {
-    let block = Block::default()
-        .title(" Input ")
-        .borders(Borders::ALL)
-        .style(Style::new().fg(Catppuccin::SUBTEXT0));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let text = if agent.input.is_empty() {
-        "Type your message and press Enter..."
+fn render_hint(frame: &mut Frame, area: Rect, agent: &AgentState) {
+    if agent.inputting {
+        frame.render_widget(
+            Paragraph::new(" Esc to cancel  |  Enter to send")
+                .style(Style::new().fg(Catppuccin::OVERLAY0)),
+            area,
+        );
     } else {
-        &agent.input
-    };
-    frame.render_widget(
-        Paragraph::new(text).style(Style::new().fg(Catppuccin::TEXT).bg(Catppuccin::SURFACE0)),
-        inner,
-    );
+        frame.render_widget(
+            Paragraph::new(" Enter to send a message  |  {key} to switch screen  |  q to quit")
+                .style(Style::new().fg(Catppuccin::OVERLAY0)),
+            area,
+        );
+    }
 }

@@ -112,6 +112,10 @@ pub fn render(frame: &mut Frame, screen: Screen, app: &App) {
     if screen == Screen::Settings && app.settings_popover {
         render_popover(frame, app);
     }
+
+    if screen == Screen::Agent && app.agent.inputting {
+        render_agent_input_popover(frame, app);
+    }
 }
 
 fn render_popover(frame: &mut Frame, app: &App) {
@@ -161,6 +165,48 @@ fn render_popover(frame: &mut Frame, app: &App) {
         })
         .collect();
     frame.render_widget(List::new(items), vert[1]);
+}
+
+fn render_agent_input_popover(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let popup = centered_rect(70, 30, area);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .title(" Send Message ")
+        .borders(Borders::ALL)
+        .style(Style::new().fg(Catppuccin::MAUVE).bg(Catppuccin::MANTLE));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Length(1)])
+        .split(inner);
+
+    // Input area
+    let input_text = if app.agent.input.is_empty() {
+        "Type your message..."
+    } else {
+        &app.agent.input
+    };
+    frame.render_widget(
+        Paragraph::new(input_text)
+            .style(Style::new().fg(Catppuccin::TEXT).bg(Catppuccin::SURFACE0))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .style(Style::new().fg(Catppuccin::SURFACE2)),
+            ),
+        vert[0],
+    );
+
+    // Hint
+    frame.render_widget(
+        Paragraph::new(" Enter to send  |  Esc to cancel ")
+            .style(Style::new().fg(Catppuccin::OVERLAY0)),
+        vert[1],
+    );
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

@@ -25,6 +25,8 @@ pub struct AgentState {
     pub messages: Vec<Message>,
     /// Current input buffer.
     pub input: String,
+    /// Whether the input popover is open.
+    pub inputting: bool,
     /// Scroll offset for the conversation view.
     pub scroll: usize,
 }
@@ -49,6 +51,7 @@ impl AgentState {
                 dataset_summary: None,
             }],
             input: String::new(),
+            inputting: false,
             scroll: 0,
         }
     }
@@ -64,6 +67,7 @@ impl AgentState {
             dataset_summary: None,
         });
         self.input.clear();
+        self.inputting = false;
 
         // TODO: call actual LLM via rig
         self.messages.push(Message {
