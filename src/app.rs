@@ -1,5 +1,6 @@
 //! Application state, event loop, and screen routing.
 
+use crate::agent::AgentState;
 use crate::cli::Cli;
 use crate::config::settings::Settings;
 use crate::dataset::Dataset;
@@ -55,6 +56,10 @@ pub struct App {
 
     /// API key connection status (for Diagnostics screen).
     pub api_key_status: String,
+
+    // Agent
+    /// Agent conversation state.
+    pub agent: AgentState,
 }
 
 impl App {
@@ -82,6 +87,7 @@ impl App {
             settings_popover_field: 0,
             settings_popover_title: String::new(),
             api_key_status: String::new(),
+            agent: AgentState::new(),
         }
     }
 
@@ -132,6 +138,47 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
         if event::poll(std::time::Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
         {
+            // Agent screen — text input for conversation
+            if app.current_screen == Screen::Agent {
+                // Ctrl+ shortcuts on Agent screen
+                if key
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::CONTROL)
+                {
+                    if let KeyCode::Char(c) = key.code {
+                        if c == 'q' || c == 'Q' {
+                            app.save_settings();
+                            break;
+                        }
+                        if let Some(screen) = screen_from_key(c) {
+                            app.current_screen = screen;
+                        }
+                    }
+                    continue;
+                }
+                match key.code {
+                    KeyCode::Enter => {
+                        let text = app.agent.input.clone();
+                        app.agent.send_message(text);
+                    }
+                    KeyCode::Esc => app.agent.input.clear(),
+                    KeyCode::Backspace => {
+                        app.agent.input.pop();
+                    }
+                    KeyCode::Up => {
+                        app.agent.scroll = app.agent.scroll.saturating_sub(1);
+                    }
+                    KeyCode::Down => {
+                        app.agent.scroll = app.agent.scroll.saturating_add(1);
+                    }
+                    KeyCode::Char(c) => {
+                        app.agent.input.push(c);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
+
             // Popover mode — capture all input for filtering / selecting
             if app.current_screen == Screen::Settings && app.settings_popover {
                 match key.code {

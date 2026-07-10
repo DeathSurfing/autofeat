@@ -216,7 +216,7 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
 
 fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
     match screen {
-        Screen::Agent => agent::render(frame, area),
+        Screen::Agent => agent::render(frame, area, &app.agent),
         Screen::Dataset => dataset::render(
             frame,
             area,
