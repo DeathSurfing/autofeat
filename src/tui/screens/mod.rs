@@ -8,6 +8,7 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 
 use crate::app::App;
 use crate::config::theme::Catppuccin;
+use crate::workflow::node::NodeKind;
 
 pub mod agent;
 pub mod dataset;
@@ -116,6 +117,10 @@ pub fn render(frame: &mut Frame, screen: Screen, app: &App) {
     if screen == Screen::Agent && app.agent.inputting {
         render_agent_input_popover(frame, app);
     }
+
+    if screen == Screen::Workflow && app.workflow_adding {
+        render_workflow_add_popover(frame, app);
+    }
 }
 
 fn render_popover(frame: &mut Frame, app: &App) {
@@ -209,6 +214,37 @@ fn render_agent_input_popover(frame: &mut Frame, app: &App) {
     );
 }
 
+fn render_workflow_add_popover(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let popup = centered_rect(50, 50, area);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .title(" Add Node ")
+        .borders(Borders::ALL)
+        .style(Style::new().fg(Catppuccin::MAUVE).bg(Catppuccin::MANTLE));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    let items: Vec<ListItem> = NodeKind::ALL
+        .iter()
+        .enumerate()
+        .map(|(i, kind)| {
+            let style = if i == app.workflow_add_selected {
+                Style::new()
+                    .fg(Catppuccin::CRUST)
+                    .bg(Catppuccin::MAUVE)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::new().fg(Catppuccin::TEXT)
+            };
+            ListItem::new(kind.label()).style(style)
+        })
+        .collect();
+
+    frame.render_widget(List::new(items), inner);
+}
+
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let popup = Layout::default()
         .direction(Direction::Vertical)
@@ -269,7 +305,7 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen, app: &App) {
             app.dataset.as_ref(),
             app.dataset_selected_column,
         ),
-        Screen::Workflow => workflow::render(frame, area),
+        Screen::Workflow => workflow::render(frame, area, &app.workflow, app.workflow_selected),
         Screen::Tools => tools::render(frame, area),
         Screen::Settings => settings::render(
             frame,

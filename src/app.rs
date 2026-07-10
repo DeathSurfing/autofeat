@@ -6,6 +6,7 @@ use crate::config::settings::Settings;
 use crate::dataset::Dataset;
 use crate::tui::screens::Screen;
 use crate::tui::screens::settings;
+use crate::workflow::graph::WorkflowGraph;
 use crossterm::event::{self, Event, KeyCode};
 
 /// App-level result type.
@@ -60,6 +61,18 @@ pub struct App {
     // Agent
     /// Agent conversation state.
     pub agent: AgentState,
+
+    // Workflow
+    /// The preprocessing pipeline graph.
+    pub workflow: WorkflowGraph,
+    /// Currently selected node index in the workflow screen.
+    pub workflow_selected: usize,
+    /// Whether the add-node popover is open.
+    pub workflow_adding: bool,
+    /// Selected index in the add-node kind list.
+    pub workflow_add_selected: usize,
+    /// Whether the user is in move-node mode.
+    pub workflow_moving: bool,
 }
 
 impl App {
@@ -88,6 +101,11 @@ impl App {
             settings_popover_title: String::new(),
             api_key_status: String::new(),
             agent: AgentState::new(),
+            workflow: WorkflowGraph::new(),
+            workflow_selected: 0,
+            workflow_adding: false,
+            workflow_add_selected: 0,
+            workflow_moving: false,
         }
     }
 
@@ -170,6 +188,88 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                         }
                         KeyCode::Down => {
                             app.agent.scroll = app.agent.scroll.saturating_add(1);
+                        }
+                        KeyCode::Char('q' | 'Q') => {
+                            app.save_settings();
+                            break;
+                        }
+                        KeyCode::Char(c) => {
+                            if let Some(screen) = screen_from_key(c) {
+                                app.current_screen = screen;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                continue;
+            }
+
+            // Workflow screen
+            if app.current_screen == Screen::Workflow {
+                if app.workflow_adding {
+                    // Add-node popover
+                    match key.code {
+                        KeyCode::Esc => app.workflow_adding = false,
+                        KeyCode::Enter => {
+                            let kinds = crate::workflow::node::NodeKind::ALL;
+                            if let Some(kind) = kinds.get(app.workflow_add_selected) {
+                                app.workflow.add_node(*kind);
+                            }
+                            app.workflow_adding = false;
+                        }
+                        KeyCode::Up => {
+                            app.workflow_add_selected = app.workflow_add_selected.saturating_sub(1);
+                        }
+                        KeyCode::Down => {
+                            let max = crate::workflow::node::NodeKind::ALL.len().saturating_sub(1);
+                            app.workflow_add_selected = (app.workflow_add_selected + 1).min(max);
+                        }
+                        _ => {}
+                    }
+                } else if app.workflow_moving {
+                    // Move mode
+                    match key.code {
+                        KeyCode::Esc => app.workflow_moving = false,
+                        KeyCode::Up => {
+                            let sel = app.workflow_selected;
+                            app.workflow.move_up(sel);
+                            app.workflow_selected = app.workflow_selected.saturating_sub(1);
+                        }
+                        KeyCode::Down => {
+                            let sel = app.workflow_selected;
+                            app.workflow.move_down(sel);
+                            app.workflow_selected = (app.workflow_selected + 1)
+                                .min(app.workflow.len().saturating_sub(1));
+                        }
+                        _ => {}
+                    }
+                } else {
+                    // Browse mode: keyboard shortcuts
+                    match key.code {
+                        KeyCode::Up => {
+                            app.workflow_selected = app.workflow_selected.saturating_sub(1);
+                        }
+                        KeyCode::Down => {
+                            let max = app.workflow.len().saturating_sub(1);
+                            app.workflow_selected = (app.workflow_selected + 1).min(max);
+                        }
+                        KeyCode::Enter | KeyCode::Char(' ') => {
+                            app.workflow.toggle(app.workflow_selected);
+                        }
+                        KeyCode::Char('a' | 'A') => {
+                            app.workflow_adding = true;
+                            app.workflow_add_selected = 0;
+                        }
+                        KeyCode::Char('d' | 'D') => {
+                            app.workflow.remove_node(app.workflow_selected);
+                            let max = app.workflow.len().saturating_sub(1);
+                            app.workflow_selected = app.workflow_selected.min(max);
+                        }
+                        KeyCode::Char('m' | 'M') => {
+                            app.workflow_moving = true;
+                        }
+                        KeyCode::Char('c' | 'C') => {
+                            app.workflow.duplicate(app.workflow_selected);
                         }
                         KeyCode::Char('q' | 'Q') => {
                             app.save_settings();
