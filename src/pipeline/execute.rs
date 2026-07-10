@@ -143,8 +143,15 @@ fn apply_transform(
             let mut pf = PolynomialFeatures::new(2)?;
             pf.fit(num_df.clone())?;
             let expanded = pf.transform(num_df)?;
+            // Keep non-numeric columns as-is, add polynomial output
             let mut result = drop_columns(df, &num_names);
             for ec in expanded.columns() {
+                // expanded already includes the original columns plus new terms
+                let name = ec.name().to_string();
+                if result.column(&name).is_ok() {
+                    // Column already in result (shouldn't happen after drop)
+                    continue;
+                }
                 let _ = result.hstack_mut(std::slice::from_ref(ec));
             }
             Ok(result)
