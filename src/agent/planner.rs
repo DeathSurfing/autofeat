@@ -3,7 +3,12 @@
 use crate::agent::Message;
 
 /// Call OpenRouter with conversation history and return the assistant's reply.
-pub async fn call_llm(api_key: &str, system: &str, messages: &[Message]) -> Result<String, String> {
+pub async fn call_llm(
+    api_key: &str,
+    model: &str,
+    system: &str,
+    messages: &[Message],
+) -> Result<String, String> {
     if api_key.is_empty() {
         return Err("API key not set. Configure it in Settings > LLM > API Key.".into());
     }
@@ -25,8 +30,13 @@ pub async fn call_llm(api_key: &str, system: &str, messages: &[Message]) -> Resu
         }));
     }
 
+    let model_name = if model.is_empty() {
+        "gpt-4o-mini"
+    } else {
+        model
+    };
     let body = serde_json::json!({
-        "model": "gpt-4o",
+        "model": model_name,
         "messages": body_messages,
         "temperature": 0.7,
         "max_tokens": 2048

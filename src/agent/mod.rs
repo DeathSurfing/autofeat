@@ -69,6 +69,7 @@ impl AgentState {
         &mut self,
         text: String,
         api_key: &str,
+        model: &str,
         dataset: Option<&Dataset>,
         workflow: &mut WorkflowGraph,
     ) {
@@ -88,7 +89,7 @@ impl AgentState {
         let system = prompts::system_prompt(dataset);
 
         // Call the LLM
-        let reply = match planner::call_llm(api_key, &system, &self.messages).await {
+        let reply = match planner::call_llm(api_key, model, &system, &self.messages).await {
             Ok(content) => content,
             Err(e) => {
                 self.messages.push(Message {

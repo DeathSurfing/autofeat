@@ -24,7 +24,7 @@ impl Default for LlmSettings {
     fn default() -> Self {
         Self {
             provider: "openrouter".into(),
-            model: "gpt-4o".into(),
+            model: "google/gemini-2.0-flash-exp:free".into(),
             temperature: 0.7,
             max_tokens: 4096,
             api_key: String::new(),
