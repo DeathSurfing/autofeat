@@ -40,6 +40,8 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
         {
             match key.code {
                 KeyCode::Char('q' | 'Q') => break,
+                KeyCode::Left => app.current_screen = app.current_screen.prev(),
+                KeyCode::Right => app.current_screen = app.current_screen.next(),
                 KeyCode::Char(c) => {
                     if let Some(screen) = screen_from_key(c) {
                         app.current_screen = screen;

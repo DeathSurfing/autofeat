@@ -45,12 +45,12 @@ impl Screen {
     /// Display label for the tab bar.
     pub fn label(&self) -> &str {
         match self {
-            Screen::Agent => " Agent ",
-            Screen::Dataset => " Dataset ",
-            Screen::Workflow => " Workflow ",
-            Screen::Tools => " Tools ",
-            Screen::Settings => " Settings ",
-            Screen::Help => " Help ",
+            Screen::Agent => "Agent",
+            Screen::Dataset => "Dataset",
+            Screen::Workflow => "Workflow",
+            Screen::Tools => "Tools",
+            Screen::Settings => "Settings",
+            Screen::Help => "Help",
         }
     }
 
@@ -63,6 +63,30 @@ impl Screen {
             Screen::Tools => "T",
             Screen::Settings => "S",
             Screen::Help => "H",
+        }
+    }
+
+    /// Move to the next screen (wrapping).
+    pub fn next(self) -> Self {
+        match self {
+            Screen::Agent => Screen::Dataset,
+            Screen::Dataset => Screen::Workflow,
+            Screen::Workflow => Screen::Tools,
+            Screen::Tools => Screen::Settings,
+            Screen::Settings => Screen::Help,
+            Screen::Help => Screen::Agent,
+        }
+    }
+
+    /// Move to the previous screen (wrapping).
+    pub fn prev(self) -> Self {
+        match self {
+            Screen::Agent => Screen::Help,
+            Screen::Dataset => Screen::Agent,
+            Screen::Workflow => Screen::Dataset,
+            Screen::Tools => Screen::Workflow,
+            Screen::Settings => Screen::Tools,
+            Screen::Help => Screen::Settings,
         }
     }
 }
@@ -88,18 +112,26 @@ fn render_tab_bar(frame: &mut Frame, area: Rect, active: Screen) {
         .fg(Color::Black)
         .bg(Color::White)
         .add_modifier(Modifier::BOLD);
-    let inactive_style = Style::new().fg(Color::White);
+    let inactive_style = Style::new().fg(Color::White).bg(Color::Reset);
 
     let mut spans = Vec::new();
     for s in Screen::ALL.iter() {
-        let label = if *s == active {
-            format!(" {} ", s.key_hint())
+        let is_active = *s == active;
+        let style = if is_active { active_style } else { inactive_style };
+        let label = format!(" {} ", s.label());
+        let key = s.key_hint();
+        let span = if is_active {
+            ratatui::text::Span::styled(format!(" [{key}] {label} "), style)
         } else {
-            format!(" {} ", s.label())
+            ratatui::text::Span::styled(format!(" {label} "), style)
         };
-        let style = if *s == active { active_style } else { inactive_style };
-        spans.push(ratatui::text::Span::styled(label, style));
+        spans.push(span);
+        spans.push(ratatui::text::Span::styled(
+            " │ ",
+            Style::new().fg(Color::DarkGray),
+        ));
     }
+    spans.pop();
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
@@ -115,7 +147,7 @@ fn render_content(frame: &mut Frame, area: Rect, screen: Screen) {
 }
 
 fn render_status_bar(frame: &mut Frame, area: Rect, _screen: Screen) {
-    let text = " [Q] Quit  |  [A/D/W/T/S/H] Switch screen  |  [I] AI Suggestions  |  [R] Review";
+    let text = " ◄/► Navigate  |  [Q] Quit  |  [I] AI Suggestions  |  [R] Review";
     frame.render_widget(
         Paragraph::new(text).style(Style::new().add_modifier(Modifier::DIM)),
         area,
