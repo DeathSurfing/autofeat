@@ -379,6 +379,16 @@ async fn run_app(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Resu
                 KeyCode::Char(' ') if app.current_screen == Screen::Settings => {
                     settings_interact(app);
                 }
+                KeyCode::Char('x' | 'X') if app.current_screen == Screen::Dataset => {
+                    if let Some(ref mut ds) = app.dataset {
+                        ds.toggle_feature(app.dataset_selected_column);
+                    }
+                }
+                KeyCode::Char('y' | 'Y') if app.current_screen == Screen::Dataset => {
+                    if let Some(ref mut ds) = app.dataset {
+                        ds.set_target(app.dataset_selected_column);
+                    }
+                }
                 KeyCode::Char(c) => {
                     if let Some(screen) = screen_from_key(c) {
                         let entered_settings =

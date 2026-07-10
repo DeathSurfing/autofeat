@@ -26,17 +26,24 @@ pub fn render(frame: &mut Frame, area: Rect, dataset: Option<&Dataset>, selected
         return;
     };
 
-    // Top info bar
     let vert = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Min(1),
+            Constraint::Length(1),
+        ])
         .split(area);
 
+    let features = ds.columns.iter().filter(|c| c.is_feature).count();
+    let target_count = ds.columns.iter().filter(|c| c.is_target).count();
     let info = format!(
-        " {}  |  {} rows  |  {} columns  |  ↑↓ scroll columns ",
+        " {}  |  {} rows  |  {} cols  |  {} features (X)  |  {} target (Y)  |  ↑↓ scroll ",
         ds.name,
         ds.df.height(),
-        ds.columns.len()
+        ds.columns.len(),
+        features,
+        target_count
     );
     frame.render_widget(
         Paragraph::new(info)
@@ -45,7 +52,6 @@ pub fn render(frame: &mut Frame, area: Rect, dataset: Option<&Dataset>, selected
         vert[0],
     );
 
-    // Main split: column list (left) + detail panel (right)
     let horz = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
@@ -53,6 +59,15 @@ pub fn render(frame: &mut Frame, area: Rect, dataset: Option<&Dataset>, selected
 
     render_column_list(frame, horz[0], ds, selected);
     render_column_detail(frame, horz[1], ds, selected);
+    render_hint(frame, vert[2]);
+}
+
+fn render_hint(frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new(" X toggle feature  |  Y mark as target  |  ↑↓ select column ")
+            .style(Style::new().fg(Catppuccin::OVERLAY0)),
+        area,
+    );
 }
 
 fn render_column_list(frame: &mut Frame, area: Rect, ds: &Dataset, selected: usize) {
@@ -68,8 +83,8 @@ fn render_column_list(frame: &mut Frame, area: Rect, ds: &Dataset, selected: usi
         .iter()
         .enumerate()
         .map(|(i, col)| {
-            let selected = i == selected;
-            let style = if selected {
+            let sel = i == selected;
+            let style = if sel {
                 Style::new()
                     .fg(Catppuccin::CRUST)
                     .bg(Catppuccin::MAUVE)
@@ -77,12 +92,19 @@ fn render_column_list(frame: &mut Frame, area: Rect, ds: &Dataset, selected: usi
             } else {
                 Style::new().fg(Catppuccin::TEXT)
             };
+            let role = if col.is_target {
+                " [Y]"
+            } else if col.is_feature {
+                " [X]"
+            } else {
+                "    "
+            };
             let null_flag = if col.null_count > 0 {
                 format!(" ⚠{}", col.null_count)
             } else {
                 String::new()
             };
-            ListItem::new(format!(" {}  {}{}", col.name, col.dtype, null_flag)).style(style)
+            ListItem::new(format!(" {}{}  {}{}", role, col.name, col.dtype, null_flag)).style(style)
         })
         .collect();
 
@@ -102,8 +124,15 @@ fn render_column_detail(frame: &mut Frame, area: Rect, ds: &Dataset, selected: u
     };
 
     let mut lines = Vec::new();
+    let role_str = if col.is_target {
+        " Y (target)"
+    } else if col.is_feature {
+        " X (feature)"
+    } else {
+        " (ignored)"
+    };
     lines.push(Line::styled(
-        format!(" {} ", col.name),
+        format!(" {} {} ", col.name, role_str),
         Style::new()
             .fg(Catppuccin::TEXT)
             .add_modifier(Modifier::BOLD),

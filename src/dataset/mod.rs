@@ -32,6 +32,10 @@ pub struct ColumnInfo {
     pub null_pct: f64,
     /// Statistical summary (only for numeric columns).
     pub stats: Option<stats::ColumnStats>,
+    /// Whether this column is marked as a feature (X).
+    pub is_feature: bool,
+    /// Whether this column is marked as the target (Y).
+    pub is_target: bool,
 }
 
 impl Dataset {
@@ -80,8 +84,24 @@ impl Dataset {
                 non_null_count,
                 null_pct,
                 stats,
+                is_feature: true,
+                is_target: false,
             });
         }
         infos
+    }
+
+    /// Toggle the feature (X) flag on a column.
+    pub fn toggle_feature(&mut self, index: usize) {
+        if let Some(col) = self.columns.get_mut(index) {
+            col.is_feature = !col.is_feature;
+        }
+    }
+
+    /// Mark a column as the target (Y), unmarking any previous target.
+    pub fn set_target(&mut self, index: usize) {
+        for (i, col) in self.columns.iter_mut().enumerate() {
+            col.is_target = i == index;
+        }
     }
 }
